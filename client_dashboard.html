@@ -207,7 +207,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sa
     <div class="setup-title">⚙️ ตั้งค่า</div>
     <div class="setup-sub">วาง Sync Code จากหน้า Settings ของ Portfolio Dashboard และตั้ง PIN แต่ละคน</div>
 
-    <div class="form-lbl">Sync Code</div>
+    <div class="form-lbl">Admin PIN (PIN ของคุณเองสำหรับเข้าหน้านี้)</div>
+    <input class="form-inp" id="setupAdminPin" type="number" placeholder="0000" maxlength="4" oninput="if(this.value.length>4)this.value=this.value.slice(0,4)">
+    <div style="font-size:11px;color:var(--sub);margin-top:5px">ค่าเริ่มต้น: 0000 — เปลี่ยนทันทีหลัง setup ครั้งแรก</div>
+
+    <div class="form-lbl" style="margin-top:20px">Sync Code</div>
     <input class="form-inp" id="setupCode" type="password" placeholder="วาง Sync Code ที่นี่…" autocomplete="off">
     <div style="font-size:11px;color:var(--sub);margin-top:5px">คัดลอกจาก Settings → Cloud Sync → Sync Code</div>
 
@@ -275,10 +279,22 @@ document.getElementById('setupTrigger').addEventListener('click', () => {
   tapCount++;
   clearTimeout(tapTimer);
   tapTimer = setTimeout(() => tapCount = 0, 2500);
-  if (tapCount >= 5) { tapCount = 0; openSetup(); }
+  if (tapCount >= 5) { tapCount = 0; promptAdminPin(); }
 });
 
+function promptAdminPin() {
+  const stored = ls.get('cl_adminPin', '0000');
+  const entered = prompt('🔐 Admin PIN:');
+  if (entered === null) return; // กด cancel
+  if (entered === stored) {
+    openSetup();
+  } else {
+    alert('PIN ไม่ถูกต้อง');
+  }
+}
+
 function openSetup() {
+  document.getElementById('setupAdminPin').value = ls.get('cl_adminPin', '0000');
   const code = getSyncCode();
   if (code) document.getElementById('setupCode').value = code;
   const pins = getPins();
@@ -295,8 +311,13 @@ function openSetup() {
 }
 
 function saveSetup() {
+  // Admin PIN
+  const adminPin = (document.getElementById('setupAdminPin')?.value||'').trim();
+  if (adminPin && adminPin.length === 4) ls.set('cl_adminPin', adminPin);
+  // Sync Code
   const code = document.getElementById('setupCode').value.trim();
   if (code) { if (!parseSyncCode(code)) { alert('Sync Code ไม่ถูกต้อง ลองใหม่นะครับ'); return; } ls.set('cl_sync', code); }
+  // User PINs
   const pins = {};
   PROFILES.forEach(p => { const v=(document.getElementById('pinInp_'+p.id)?.value||'').trim(); if(v.length===4) pins[p.id]=v; });
   ls.setObj('cl_pins', pins);
