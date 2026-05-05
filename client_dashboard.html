@@ -473,8 +473,13 @@ function renderDash(S) {
     totalUSD  +=val;
     return {h,price,qty,val,sym:h.resolvedSymbol||h.symbol||'?'};
   });
-  cash.forEach(h=>{const cur=(h.currency&&h.currency!=='AUTO')?h.currency:'USD';totalUSD+=toUSD(parseFloat(h.currentPrice||h.price)||0,cur);});
+  // Sum all cash into one USD value for the chart
+  let cashUSD = 0;
+  cash.forEach(h=>{const cur=(h.currency&&h.currency!=='AUTO')?h.currency:'USD';const v=toUSD(parseFloat(h.currentPrice||h.price)||0,cur);totalUSD+=v;cashUSD+=v;});
   stockData.sort((a,b)=>b.val-a.val);
+  // Build chart data: stocks + cash slice (if any)
+  const chartData = [...stockData.map(d=>({sym:d.sym,val:d.val}))];
+  if (cashUSD > 0) chartData.push({sym:'Cash',val:cashUSD});
 
   const f2=n=>n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
   const f0=n=>Math.round(n).toLocaleString('en-US');
@@ -572,18 +577,20 @@ function renderDash(S) {
   html+=`<div class="dash-foot">ข้อมูลจาก Portfolio Dashboard · อัปเดตเมื่อ Dam กดรีเฟรชราคา</div>`;
   document.getElementById('dashBody').innerHTML = html;
 
-  // Pie chart
-  if (stockData.length>1) {
+  // Pie chart — includes cash slice
+  if (chartData.length>1) {
     setTimeout(()=>{
       const ctx=document.getElementById('pieCanvas')?.getContext('2d');
       if (!ctx) return;
       if (pieChart){pieChart.destroy();pieChart=null;}
       Chart.register(ChartDataLabels);
+      // Cash gets a distinct grey-blue color at the end
+      const chartColors = chartData.map((d,i)=> d.sym==='Cash' ? '#64748b' : COLORS[i%COLORS.length]);
       pieChart=new Chart(ctx,{
         type:'doughnut',
         data:{
-          labels:stockData.map(d=>d.sym),
-          datasets:[{data:stockData.map(d=>parseFloat(d.val.toFixed(2))),backgroundColor:stockData.map((_,i)=>COLORS[i%COLORS.length]),borderColor:'#090b14',borderWidth:3}]
+          labels:chartData.map(d=>d.sym),
+          datasets:[{data:chartData.map(d=>parseFloat(d.val.toFixed(2))),backgroundColor:chartColors,borderColor:'#090b14',borderWidth:3}]
         },
         options:{
           responsive:true,cutout:'48%',layout:{padding:24},
